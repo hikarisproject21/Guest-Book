@@ -496,7 +496,11 @@ function startQrCodeScanner() {
         requestAnimationFrame(tick);
     } else {
         // Minta izin hanya jika belum ada stream
-        navigator.mediaDevices.getUserMedia({ video: true })
+        navigator.mediaDevices.getUserMedia({
+    video: {
+        facingMode: { exact: "environment" }
+    }
+})
             .then(stream => {
                 video.srcObject = stream;
                 video.setAttribute("playsinline", true);
