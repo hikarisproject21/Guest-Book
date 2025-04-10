@@ -14,6 +14,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.11/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
     
 </head>
 <style>
@@ -400,10 +402,10 @@ function renderGuestTable() {
     guestList.forEach((guest, index) => {
         const row = tableBody.insertRow();
         row.innerHTML = `
-            <td class="py-2 px-4 border-b">${guest.name}</td>
-            <td class="py-2 px-4 border-b">${guest.date}</td>
-            <td class="py-2 px-4 border-b">${guest.time}</td>
-            <td class="py-2 px-4 border-b">${guest.type}</td>
+            <td class="py-2 px-4 border-b">${guest.name|| ''}</td>
+            <td class="py-2 px-4 border-b">${guest.date|| ''}</td>
+            <td class="py-2 px-4 border-b">${guest.time|| ''}</td>
+            <td class="py-2 px-4 border-b">${guest.type|| ''}</td>
             <td class="py-2 px-4 border-b">${guest.numberOfPeople || 0}</td>
             <td class="py-2 px-4 border-b">${guest.status}</td>
 
@@ -428,26 +430,35 @@ function markAsHadir(index) {
 
 
 
+function searchGuest() {
+    const query = document.getElementById('search-input').value.toLowerCase();
+    const tableBody = document.getElementById('guest-table').getElementsByTagName('tbody')[0];
+    const rows = tableBody.getElementsByTagName('tr');
 
-        function searchGuest() {
-            const query = document.getElementById('search-input').value.toLowerCase();
-            const filteredGuests = guestList.filter(guest => guest.name.toLowerCase().includes(query));
-            const tableBody = document.getElementById('guest-table').getElementsByTagName('tbody')[0];
-            tableBody.innerHTML = '';
-            filteredGuests.forEach((guest, index) => {
-                const row = tableBody.insertRow();
-                row.innerHTML = `
-                    <td class="py-2 px-4 border-b">${guest.name}</td>
-                    <td class="py-2 px-4 border-b">${guest.date}</td>
-                    <td class="py-2 px-4 border-b">${guest.time}</td>
-                    <td class="py-2 px-4 border-b">${guest.type}</td>
-                    <td class="py-2 px-4 border-b">${guest.status}</td>
-                    <td class="py-2 px-4 border-b">
-                        <button class="text-green-500" onclick="markAsHadir(${index})">Mark as Hadir</button>
-                    </td>
-                `;
-            });
+    let found = false;
+
+    for (let i = 0; i < rows.length; i++) {
+        const nameCell = rows[i].cells[0]; // Kolom nama tamu
+        if (nameCell && nameCell.textContent.toLowerCase().includes(query)) {
+            // Highlight
+            rows[i].classList.add('bg-yellow-200');
+
+            // Scroll ke baris ini
+            rows[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            found = true;
+            break; // cuma scroll ke yang pertama cocok
+        } else {
+            // Hapus highlight kalau sebelumnya sudah pernah di-highlight
+            rows[i].classList.remove('bg-yellow-200');
         }
+    }
+
+    if (!found && query !== '') {
+        alert("Tamu tidak ditemukan");
+    }
+}
+
 
  // Menampilkan form "Tambah Tamu" sebagai modal
 function showAddGuestForm() {
