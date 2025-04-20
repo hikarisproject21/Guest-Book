@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -156,6 +157,9 @@
         <div id="qr-reader" class="mb-4" style="width: 300px;">
             <video id="video" width="280" height="280" autoplay></video>
             <canvas id="canvas" style="display:none;"></canvas>
+            <select id="cameraSelect" class="mt-5 rp-2 border rounded" onchange="changeCamera()"
+            class="mb-4 p-2 border rounded">
+          </select>
         </div>
         <button id="close-qr-scanner" class="bg-red-500 text-white py-2 px-4 rounded mt-4" onclick="closeQrScanner()">Close Scanner</button>
     </div>
@@ -435,27 +439,24 @@ function searchGuest() {
     const tableBody = document.getElementById('guest-table').getElementsByTagName('tbody')[0];
     const rows = tableBody.getElementsByTagName('tr');
 
+    // Hapus semua highlight dulu
+    for (let i = 0; i < rows.length; i++) {
+        rows[i].classList.remove('bg-yellow-200');
+    }
+
+    // Kalau input kosong, gak usah lanjut cari
+    if (query === '') return;
+
     let found = false;
 
     for (let i = 0; i < rows.length; i++) {
-        const nameCell = rows[i].cells[0]; // Kolom nama tamu
+        const nameCell = rows[i].cells[0];
         if (nameCell && nameCell.textContent.toLowerCase().includes(query)) {
-            // Highlight
             rows[i].classList.add('bg-yellow-200');
-
-            // Scroll ke baris ini
             rows[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
-
             found = true;
-            break; // cuma scroll ke yang pertama cocok
-        } else {
-            // Hapus highlight kalau sebelumnya sudah pernah di-highlight
-            rows[i].classList.remove('bg-yellow-200');
+            break;
         }
-    }
-
-    if (!found && query !== '') {
-        alert("Tamu tidak ditemukan");
     }
 }
 
@@ -488,44 +489,56 @@ function addGuest() {
     }
 }
 
-let cameraPermissionGranted = false; // Variabel untuk menyimpan status izin kamera
-let videoStream; // Variabel untuk menyimpan aliran video
+let cameraPermissionGranted = false;
+let videoStream;
+let currentDeviceId = null;
+
+async function populateCameraOptions() {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(device => device.kind === 'videoinput');
+    const select = document.getElementById('cameraSelect');
+    select.innerHTML = '';
+
+    videoDevices.forEach(device => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.text = device.label || `Kamera ${select.length + 1}`;
+        select.appendChild(option);
+    });
+
+    // Simpan deviceId awal
+    currentDeviceId = select.value;
+}
+
 function startQrCodeScanner() {
-    console.log("Starting QR Code Scanner");
-    console.log("Camera Permission Granted:", cameraPermissionGranted);
-
     const qrModal = document.getElementById('qr-modal');
-    qrModal.style.display = 'flex'; // Tampilkan modal pemindai QR
-
+    qrModal.style.display = 'flex';
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
     const context = canvas.getContext('2d');
 
-    // Jika stream masih ada, gunakan kembali tanpa minta izin lagi
     if (videoStream) {
         video.srcObject = videoStream;
         video.play();
-        console.log("Video stream resumed");
         requestAnimationFrame(tick);
-    } else {
-        // Minta izin hanya jika belum ada stream
-        navigator.mediaDevices.getUserMedia({
-    video: {
-        facingMode: { exact: "environment" }
+        return;
     }
-})
-            .then(stream => {
-                video.srcObject = stream;
-                video.setAttribute("playsinline", true);
-                video.play();
-                videoStream = stream; // Simpan aliran video
-                cameraPermissionGranted = true;
-                requestAnimationFrame(tick);
-            })
-            .catch(err => {
-                console.error("Error accessing webcam: ", err);
-            });
-    }
+
+    navigator.mediaDevices.getUserMedia({
+        video: { deviceId: currentDeviceId ? { exact: currentDeviceId } : undefined }
+    })
+    .then(stream => {
+        videoStream = stream;
+        video.srcObject = stream;
+        video.setAttribute("playsinline", true);
+        video.play();
+        cameraPermissionGranted = true;
+        requestAnimationFrame(tick);
+    })
+    .catch(err => {
+        console.error("Gagal mengakses kamera:", err);
+        alert("Gagal mengakses kamera. Coba ubah pilihan kamera atau periksa izin browser.");
+    });
 
     function tick() {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -535,31 +548,40 @@ function startQrCodeScanner() {
             const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
             const code = jsQR(imageData.data, canvas.width, canvas.height);
             if (code) {
-                const qrData = code.data; // Ambil data QR yang dipindai
+                const qrData = code.data;
                 document.getElementById('input-people-modal').style.display = 'flex';
                 window.currentGuestIndex = guestList.findIndex(guest => guest.name === qrData);
                 window.scannedQRCodeData = qrData;
-                closeQrScanner(); // Kamera tetap siap digunakan kembali
+                closeQrScanner();
             }
         }
         requestAnimationFrame(tick);
     }
 }
 
-
 function closeQrScanner() {
     const qrModal = document.getElementById('qr-modal');
     const video = document.getElementById('video');
-
-    // Pause video tanpa stop stream
     video.pause();
     video.srcObject = null;
-
-    // Sembunyikan modal scanner
     qrModal.style.display = 'none';
 }
 
+function changeCamera() {
+    const select = document.getElementById('cameraSelect');
+    const newDeviceId = select.value;
 
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+    }
+
+    currentDeviceId = newDeviceId;
+    startQrCodeScanner(); // restart scanner dengan kamera baru
+}
+
+// Panggil saat awal halaman
+populateCameraOptions();
 
 
 
